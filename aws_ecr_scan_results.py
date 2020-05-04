@@ -1,8 +1,8 @@
-import boto3
 import argparse
-import requests
 import json
 import os
+import boto3
+import requests
 
 
 class ECRScanChecker:
@@ -87,8 +87,11 @@ class ECRScanChecker:
                     counts = findings["findingSeverityCounts"]
                     title = "\n\n:warning: *AWS ECR Scan found results for {}:* \n".format(
                         image)
-                    severity_counts = "Severity finding counts:\n{}\nDisplaying the first {} in order of severity\n\n".format(
-                        counts, self.report_limit)
+                    severity_counts = """Severity finding counts:
+                                      {}
+                                      Displaying the first {} in order of severity
+
+                                      """.format(counts, self.report_limit)
                     self.report = title + severity_counts
 
                     for finding in findings["findings"]:
@@ -96,8 +99,14 @@ class ECRScanChecker:
                         description = finding["description"]
                         severity = finding["severity"]
                         link = finding["uri"]
-                        result = "*Image:* {0} \n**Tag:* {1} \n*Severity:* {2} \n*CVE:* {3} \n*Description:* {4} \n*Link:* {5}\n\n".format(
-                            image, tag, severity, cve, description, link)
+                        result = """*Image:* {0}
+                                  **Tag:* {1}
+                                  *Severity:* {2}
+                                  *CVE:* {3}
+                                  *Description:* {4}
+                                  *Link:* {5}
+
+                                  """.format(image, tag, severity, cve, description, link)
                         self.report += result
                     print(self.report)
             except:
@@ -159,7 +168,7 @@ def main():
     work.recursive_check_make_report(args.tag)
     if args.slack_webhook is None:
         print("No slack webhook provided, skipping post of results to slack")
-    if args.post_to_slack == True and args.slack_webhook is not None:
+    if args.post_to_slack and args.slack_webhook is not None:
         work.post_to_slack(args.slack_webhook)
 
 
