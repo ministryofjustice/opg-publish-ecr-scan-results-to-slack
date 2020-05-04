@@ -3,8 +3,8 @@
 import argparse
 import json
 import os
-import boto3
 import requests
+import boto3
 
 
 class ECRScanChecker:
