@@ -87,8 +87,7 @@ class ECRScanChecker:
                     counts = findings["findingSeverityCounts"]
                     title = "\n\n:warning: *AWS ECR Scan found results for {}:* \n".format(
                         image)
-                    severity_counts = """Severity finding counts:
-                                      {}
+                    severity_counts = """Severity finding counts: {}
                                       Displaying the first {} in order of severity
 
                                       """.format(counts, self.report_limit)
