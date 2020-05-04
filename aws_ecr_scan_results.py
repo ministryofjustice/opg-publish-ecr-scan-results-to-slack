@@ -1,3 +1,5 @@
+"""Check ECR Scan results for all service container images."""
+
 import argparse
 import json
 import os
@@ -6,6 +8,7 @@ import requests
 
 
 class ECRScanChecker:
+    """Check ECR Scan results for all service container images."""
     aws_account_id = ''
     aws_iam_session = ''
     aws_ecr_client = ''
@@ -27,6 +30,7 @@ class ECRScanChecker:
         self.images_to_check = self.get_repositories(search_term)
 
     def set_iam_role_session(self):
+        """Create an IAM role session."""
         if os.getenv('CI'):
             role_arn = 'arn:aws:iam::{}:role/opg-use-an-lpa-ci'.format(
                 self.aws_account_id)
@@ -46,6 +50,7 @@ class ECRScanChecker:
         self.aws_iam_session = session
 
     def get_repositories(self, search_term):
+        """Get all ECR repositories using search."""
         images_to_check = []
         response = self.aws_ecr_client.describe_repositories()
         for repository in response["repositories"]:
@@ -54,12 +59,14 @@ class ECRScanChecker:
         return images_to_check
 
     def recursive_wait(self, tag):
+        """Iteratively wait for all all available image scans to complete."""
         print("Waiting for ECR scans to complete...")
         for image in self.images_to_check:
             self.wait_for_scan_completion(image, tag)
         print("ECR image scans complete")
 
     def wait_for_scan_completion(self, image, tag):
+        """Wait until ECR scans have completed for image:tag."""
         try:
             waiter = self.aws_ecr_client.get_waiter('image_scan_complete')
             waiter.wait(
@@ -77,6 +84,7 @@ class ECRScanChecker:
                 image, tag))
 
     def recursive_check_make_report(self, tag):
+        """Construct report text from ECR scan findings."""
         print("Checking ECR scan results...")
         for image in self.images_to_check:
             try:
@@ -113,6 +121,7 @@ class ECRScanChecker:
                     image, tag))
 
     def get_ecr_scan_findings(self, image, tag):
+        """Get ECR scan findings for image:tag."""
         response = self.aws_ecr_client.describe_image_scan_findings(
             repositoryName=image,
             imageId={
@@ -123,6 +132,7 @@ class ECRScanChecker:
         return response
 
     def post_to_slack(self, slack_webhook):
+        """Post to Slack using slack webhook."""
         if self.report != "":
             branch_info = "*Github Branch:* {0}\n*CircleCI Job Link:* {1}\n\n".format(
                 os.getenv('CIRCLE_BRANCH', ""),
@@ -143,6 +153,7 @@ class ECRScanChecker:
 
 
 def main():
+    """Check ECR Scan results for all service container images."""
     parser = argparse.ArgumentParser(
         description="Check ECR Scan results for all service container images.")
     parser.add_argument("--search",
