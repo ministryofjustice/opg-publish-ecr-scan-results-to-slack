@@ -19,10 +19,10 @@ class ECRScanChecker:
     report = ''
     report_limit = ''
 
-    def __init__(self, iam_role_name, report_limit, search_term):
+    def __init__(self, iam_role_name, ecr_aws_account_id, report_limit, search_term):
         self.iam_role_name = iam_role_name
         self.report_limit = int(report_limit)
-        self.aws_account_id = 311462405659  # management account id
+        self.aws_account_id = ecr_aws_account_id
         self.set_iam_role_session()
         self.aws_ecr_client = boto3.client(
             'ecr',
@@ -158,8 +158,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Check ECR Scan results for all service container images.")
     parser.add_argument("--iam_role_name",
-                        default="operator",
-                        help="The root part of the ECR repositry path, for example online-lpa")
+                        help="Name of the iam role to use when creating AWS STS sessions")
+    parser.add_argument("--ecr_aws_account_id",
+                        help="AWS Account ID where ECR lives")
     parser.add_argument("--search",
                         default="",
                         help="The root part of the ECR repositry path, for example online-lpa")
@@ -177,7 +178,8 @@ def main():
                         help="Optionally turn off posting messages to slack")
 
     args = parser.parse_args()
-    work = ECRScanChecker(args.iam_role_name, args.result_limit, args.search)
+    work = ECRScanChecker(
+        args.iam_role_name, args.ecr_aws_account_id, args.result_limit, args.search)
     work.recursive_wait(args.tag)
     work.recursive_check_make_report(args.tag)
     work.finalise_report()
