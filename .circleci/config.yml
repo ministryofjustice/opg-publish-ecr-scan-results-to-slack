@@ -1,0 +1,23 @@
+version: 2.1
+
+workflows:
+  pr_build:
+      jobs:
+        - lint_python:
+            name: lint_python
+            filters: { branches: { ignore: [master] } }
+
+jobs:
+  lint_python:
+    docker:
+      - image: circleci/python
+    steps:
+      - checkout
+      - run:
+          name: Install Pylint
+          command: |
+            pip install pylint
+      - run:
+          name: Lint AWS ECR scan results script
+          command: |
+            pylint aws_ecr_scan_results.py
