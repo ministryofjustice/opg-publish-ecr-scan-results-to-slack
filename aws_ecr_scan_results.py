@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import inspect
 import requests
 import boto3
 
@@ -10,6 +11,7 @@ import boto3
 class ECRScanChecker:
     """Check ECR Scan results for all service container images."""
     aws_account_id = ''
+    iam_role_name = ''
     aws_iam_session = ''
     aws_ecr_client = ''
     images_to_check = []
@@ -17,7 +19,8 @@ class ECRScanChecker:
     report = ''
     report_limit = ''
 
-    def __init__(self, report_limit, search_term):
+    def __init__(self, iam_role_name, report_limit, search_term):
+        self.iam_role_name = iam_role_name
         self.report_limit = int(report_limit)
         self.aws_account_id = 311462405659  # management account id
         self.set_iam_role_session()
@@ -31,12 +34,8 @@ class ECRScanChecker:
 
     def set_iam_role_session(self):
         """Create an IAM role session."""
-        if os.getenv('CI'):
-            role_arn = 'arn:aws:iam::{}:role/opg-use-an-lpa-ci'.format(
-                self.aws_account_id)
-        else:
-            role_arn = 'arn:aws:iam::{}:role/operator'.format(
-                self.aws_account_id)
+        role_arn = 'arn:aws:iam::{}:role/{}'.format(
+            self.aws_account_id, self.iam_role_name)
 
         sts = boto3.client(
             'sts',
@@ -95,10 +94,10 @@ class ECRScanChecker:
                     counts = findings["findingSeverityCounts"]
                     title = "\n\n:warning: *AWS ECR Scan found results for {}:* \n".format(
                         image)
-                    severity_counts = """Severity finding counts: {}
+                    severity_counts = inspect.cleandoc("""Severity finding counts: {}
                                       Displaying the first {} in order of severity
 
-                                      """.format(counts, self.report_limit)
+                                      """.format(counts, self.report_limit))
                     self.report = title + severity_counts
 
                     for finding in findings["findings"]:
@@ -106,14 +105,14 @@ class ECRScanChecker:
                         description = finding["description"]
                         severity = finding["severity"]
                         link = finding["uri"]
-                        result = """*Image:* {0}
+                        result = inspect.cleandoc("""*Image:* {0}
                                   **Tag:* {1}
                                   *Severity:* {2}
                                   *CVE:* {3}
                                   *Description:* {4}
                                   *Link:* {5}
 
-                                  """.format(image, tag, severity, cve, description, link)
+                                  """.format(image, tag, severity, cve, description, link))
                         self.report += result
                     print(self.report)
             except:
@@ -131,31 +130,36 @@ class ECRScanChecker:
         )
         return response
 
-    def post_to_slack(self, slack_webhook):
+    def finalise_report(self):
         """Post to Slack using slack webhook."""
         if self.report != "":
-            branch_info = "*Github Branch:* {0}\n*CircleCI Job Link:* {1}\n\n".format(
+            branch_info = "\n*Github Branch:* {0}\n*CircleCI Job Link:* {1}\n\n".format(
                 os.getenv('CIRCLE_BRANCH', ""),
                 os.getenv('CIRCLE_BUILD_URL', ""))
             self.report += branch_info
             print(self.report)
 
-            post_data = json.dumps({"text": self.report})
-            response = requests.post(
-                slack_webhook, data=post_data,
-                headers={'Content-Type': 'application/json'}
+    def post_to_slack(self, slack_webhook):
+        """Post to Slack using slack webhook."""
+        post_data = json.dumps({"text": self.report})
+        response = requests.post(
+            slack_webhook, data=post_data,
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code != 200:
+            raise ValueError(
+                'Request to slack returned an error %s, the response is:\n%s'
+                % (response.status_code, response.text)
             )
-            if response.status_code != 200:
-                raise ValueError(
-                    'Request to slack returned an error %s, the response is:\n%s'
-                    % (response.status_code, response.text)
-                )
 
 
 def main():
     """Check ECR Scan results for all service container images."""
     parser = argparse.ArgumentParser(
         description="Check ECR Scan results for all service container images.")
+    parser.add_argument("--iam_role_name",
+                        default="operator",
+                        help="The root part of the ECR repositry path, for example online-lpa")
     parser.add_argument("--search",
                         default="",
                         help="The root part of the ECR repositry path, for example online-lpa")
@@ -173,13 +177,14 @@ def main():
                         help="Optionally turn off posting messages to slack")
 
     args = parser.parse_args()
-    work = ECRScanChecker(args.result_limit, args.search)
+    work = ECRScanChecker(args.iam_role_name, args.result_limit, args.search)
     work.recursive_wait(args.tag)
     work.recursive_check_make_report(args.tag)
-    if args.slack_webhook is None:
-        print("No slack webhook provided, skipping post of results to slack")
+    work.finalise_report()
     if args.post_to_slack and args.slack_webhook is not None:
         work.post_to_slack(args.slack_webhook)
+    else:
+        print("No slack webhook provided, skipping post of results to slack")
 
 
 if __name__ == "__main__":
