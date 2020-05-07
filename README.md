@@ -24,13 +24,17 @@ You can provide the script credentials using aws-vault
 
 ``` bash
 aws-vault exec identity -- python aws_ecr_scan_results.py \
-  --search use_an_lpa
+  --iam_role_name operator \
+  --ecr_aws_account_id 311462405659 \
+  --search online-lpa
 ```
 
 to configure other options, use the additional arguments
 
 ``` bash
 aws-vault exec identity -- python aws_ecr_scan_results.py \
+  --iam_role_name operator \
+  --ecr_aws_account_id 311462405659
   --search use_an_lpa \
   --tag latest \
   --webhook "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX" \
