@@ -102,7 +102,11 @@ class ECRScanChecker:
 
                     for finding in findings["findings"]:
                         cve = finding["name"]
-                        description = finding["description"]
+
+                        description = "None"
+                        if "description" in finding:
+                            description = finding["description"]
+
                         severity = finding["severity"]
                         link = finding["uri"]
                         result = inspect.cleandoc("""*Image:* {0}
