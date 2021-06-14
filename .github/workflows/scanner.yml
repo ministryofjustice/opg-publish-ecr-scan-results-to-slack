@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "main"
+      - "master"
   schedule:
     # Every thursday, at 10:20 UTC
     - cron: '20 10 * * 4'
